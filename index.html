@@ -3,19 +3,15 @@
 <head>
     <title>Real-time GPS Tracking Using IoT</title>
 
-    <!-- Google Font for better typography -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-
-    <!-- Leaflet CSS for map styling -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
-    <!-- Custom Styles for page -->
     <style>
         body {
             margin: 0;
             padding: 0;
             font-family: 'Roboto', sans-serif;
-            background: linear-gradient(to right, #FF6F61, #D32F2F); /* Red and orange gradient */
+            background: linear-gradient(to right, #daf7dc 0%, #c8e6c9 50%, #008400 100%); /* White to light green to dark green */
             color: #fff;
             height: 100vh;
             display: flex;
@@ -23,27 +19,35 @@
             align-items: center;
             text-align: center;
             flex-direction: column;
+            position: relative;
         }
 
         h1 {
-            font-size: 36px;
+            font-size: 45px;
             margin: 20px;
-            color: #fff;
+            color: #000000;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
         #map {
-            height: 70%; /* Set map size */
+            height: 70%;
             width: 90%;
-            border-radius: 10px; /* Rounded corners for the map */
-            border: 4px solid #fff; /* White border around the map */
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* Add subtle shadow */
+            border-radius: 10px;
+            border: 4px solid #fff;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
         }
 
         .info {
-            margin-top: 20px;
+            position: absolute;
+            top: 10px;
+            right: 20px;
             font-size: 18px;
             color: #fff;
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
         }
 
         .info p {
@@ -54,7 +58,7 @@
         .button {
             padding: 12px 30px;
             margin: 20px;
-            background-color: #D32F2F;
+            background-color: #006400; /* Dark green button */
             color: white;
             font-size: 16px;
             border: none;
@@ -65,8 +69,18 @@
         }
 
         .button:hover {
-            background-color: #FF6F61; /* Change button color on hover */
+            background-color: #004d00; /* Darker green on hover */
         }
+
+       header img {
+    width: 200px;
+    height: 200px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    border-radius: 50%; /* Makes the image rounded */
+}
     </style>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -74,12 +88,14 @@
 </head>
 <body>
 
+<header>
+    <img src="https://www.timeshighereducation.com/cms-academic/sites/default/files/migrated_institution_logos/al-mustaqbal_university_logo_.jpg" alt="Al Mustaqbal University Logo">
+</header>
+</br></br>
 <h1>Real-time GPS Tracking Using IoT</h1>
-
-<!-- Map container -->
+</br></br></br>
 <div id="map"></div>
 
-<!-- Information Section -->
 <div class="info">
     <p><strong>Current Coordinates:</strong></p>
     <p id="latitude">Latitude: N/A</p>
@@ -88,50 +104,54 @@
 </div>
 
 <script>
-    var map = L.map('map').setView([37.7749, -122.4194], 13); // Initial position (San Francisco)
+    var map = L.map('map').setView([0, 0], 2); // Default position at (0, 0)
 
-    // Add OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
     var marker;
 
-    // Fetch GPS Data from ThingSpeak API
     function fetchThingSpeakData() {
         var channelID = "2733796";  // ThingSpeak Channel ID
         var apiKey = "HL4FWBYA1Z4AJAIL";  // ThingSpeak Read API Key
-        var latitudeUrl = `https://api.thingspeak.com/channels/${channelID}/fields/1/last.json?api_key=${apiKey}`;
-        var longitudeUrl = `https://api.thingspeak.com/channels/${channelID}/fields/2/last.json?api_key=${apiKey}`;
+        var url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}`;
 
-        // Fetch latitude data
-        $.getJSON(latitudeUrl, function(latitudeData) {
-            $.getJSON(longitudeUrl, function(longitudeData) {
-                var latitude = latitudeData.field1;
-                var longitude = longitudeData.field2;
+        // Fetch data from ThingSpeak
+        $.getJSON(url)
+            .done(function(data) {
+                if (data.feeds && data.feeds.length > 0) {
+                    var latestFeed = data.feeds[data.feeds.length - 1];
+                    var latitude = latestFeed.field1;
+                    var longitude = latestFeed.field2;
 
-                console.log("Latitude: " + latitude + ", Longitude: " + longitude);
+                    if (latitude && longitude) {
+                        console.log("Latitude: " + latitude + ", Longitude: " + longitude);
 
-                // If a marker exists, remove it before adding the new one
-                if (marker) {
-                    map.removeLayer(marker);
+                        if (marker) {
+                            map.removeLayer(marker);
+                        }
+
+                        var newLocation = [latitude, longitude];
+                        map.setView(newLocation, 13);
+
+                        marker = L.marker(newLocation).addTo(map).bindPopup("GPS Location").openPopup();
+
+                        document.getElementById('latitude').textContent = "Latitude: " + latitude;
+                        document.getElementById('longitude').textContent = "Longitude: " + longitude;
+                    } else {
+                        alert("Received invalid GPS data. Please check the ThingSpeak feed.");
+                    }
+                } else {
+                    alert("No data found in ThingSpeak feed.");
                 }
-
-                // Update map with the new GPS location
-                var newLocation = [latitude, longitude];
-                map.setView(newLocation, 13);  // Update map center
-
-                // Add or update the marker at the new location
-                marker = L.marker(newLocation).addTo(map).bindPopup("GPS Location").openPopup();
-
-                // Update the info display on the page
-                document.getElementById('latitude').textContent = "Latitude: " + latitude;
-                document.getElementById('longitude').textContent = "Longitude: " + longitude;
+            })
+            .fail(function() {
+                alert("Error fetching GPS data from ThingSpeak.");
             });
-        });
     }
 
-    // Fetch initial data when the page loads
+    // Initial data fetch when the page loads
     fetchThingSpeakData();
 
     // Fetch data every 10 seconds (10000 ms)
